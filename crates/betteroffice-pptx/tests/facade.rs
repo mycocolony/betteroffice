@@ -1,4 +1,4 @@
-use betteroffice_pptx::{EditCtx, Error, Presentation, ShapeNode};
+use betteroffice_pptx::{ColorValue, EditCtx, Error, Presentation, ShapeFill, ShapeNode};
 
 const FIXTURE: &[u8] = include_bytes!("../../../apps/demo/public/betteroffice-demo.pptx");
 const FONT: &[u8] = include_bytes!("../../ooxml-text/tests/fonts/LiberationSans-Regular.ttf");
@@ -214,6 +214,47 @@ fn structured_exports_run_through_the_facade() {
         export_pptx_structured(b"not a deck", &options),
         Err(Error::Export(ExportError::Parse(_)))
     ));
+}
+
+#[test]
+fn sets_and_clears_a_slide_background() {
+    let presentation = Presentation::open(FIXTURE).unwrap();
+    let slide_id = presentation.snapshot().unwrap().slides[0].id.clone();
+    let fill = ShapeFill {
+        fill_type: "solid".to_owned(),
+        color: Some(ColorValue {
+            rgb: Some("0F1720".to_owned()),
+            ..ColorValue::default()
+        }),
+        gradient: None,
+    };
+
+    let receipt = presentation
+        .set_slide_background(&EditCtx::local("facade-test"), &slide_id, Some(&fill))
+        .unwrap();
+    assert_eq!(receipt.after, Some(fill.clone()));
+
+    let saved = presentation.save().unwrap();
+    let reopened = Presentation::open(&saved).unwrap();
+    assert_eq!(
+        reopened.snapshot().unwrap().slides[0].background,
+        Some(fill)
+    );
+
+    let receipt = reopened
+        .set_slide_background(&EditCtx::local("facade-test"), &slide_id, None)
+        .unwrap();
+    assert_eq!(receipt.after, None);
+    let saved = reopened.save().unwrap();
+    assert_eq!(
+        Presentation::open(&saved)
+            .unwrap()
+            .snapshot()
+            .unwrap()
+            .slides[0]
+            .background,
+        None
+    );
 }
 
 #[test]

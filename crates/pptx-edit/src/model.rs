@@ -193,6 +193,8 @@ pub struct SlideSnapshot {
     pub name: Option<String>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub notes: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<ShapeFill>,
     pub shapes: Vec<ShapeSnapshot>,
 }
 
@@ -338,6 +340,14 @@ pub struct ShapeFillReceipt {
     pub shape_id: String,
     pub before: Option<String>,
     pub after: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SlideBackgroundReceipt {
+    pub slide_id: String,
+    pub before: Option<ShapeFill>,
+    pub after: Option<ShapeFill>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
