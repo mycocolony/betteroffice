@@ -1,4 +1,6 @@
-use betteroffice_pptx::{ColorValue, EditCtx, Error, Presentation, ShapeFill, ShapeNode};
+use betteroffice_pptx::{
+    ColorValue, EditCtx, Error, GradientFill, ModelGradientStop, Presentation, ShapeFill, ShapeNode,
+};
 
 const FIXTURE: &[u8] = include_bytes!("../../../apps/demo/public/betteroffice-demo.pptx");
 const FONT: &[u8] = include_bytes!("../../ooxml-text/tests/fonts/LiberationSans-Regular.ttf");
@@ -254,6 +256,50 @@ fn sets_and_clears_a_slide_background() {
             .slides[0]
             .background,
         None
+    );
+}
+
+#[test]
+fn sets_and_clears_a_gradient_slide_background() {
+    let presentation = Presentation::open(FIXTURE).unwrap();
+    let slide_id = presentation.snapshot().unwrap().slides[0].id.clone();
+    let fill = ShapeFill {
+        fill_type: "gradient".to_owned(),
+        color: None,
+        gradient: Some(GradientFill {
+            gradient_type: "linear".to_owned(),
+            angle: Some(45.0),
+            stops: vec![
+                ModelGradientStop {
+                    position: 0.0,
+                    color: ColorValue {
+                        rgb: Some("0F1720".to_owned()),
+                        ..ColorValue::default()
+                    },
+                },
+                ModelGradientStop {
+                    position: 100_000.0,
+                    color: ColorValue {
+                        rgb: Some("0F766E".to_owned()),
+                        ..ColorValue::default()
+                    },
+                },
+            ],
+        }),
+    };
+
+    presentation
+        .set_slide_background(&EditCtx::local("facade-test"), &slide_id, Some(&fill))
+        .unwrap();
+    let saved = presentation.save().unwrap();
+    assert_eq!(
+        Presentation::open(&saved)
+            .unwrap()
+            .snapshot()
+            .unwrap()
+            .slides[0]
+            .background,
+        Some(fill)
     );
 }
 

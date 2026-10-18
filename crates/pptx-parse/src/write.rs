@@ -1528,11 +1528,10 @@ fn patch_background(
     prefixes: &Prefixes,
     part: &str,
 ) -> Result<(), PptxError> {
-    if let Some(index) = common.children.iter().position(
-        |child| matches!(child, XmlNode::Element(element) if element.local_name() == "bg"),
-    ) {
-        common.children.remove(index);
-    }
+    common.children.retain(|child| match child {
+        XmlNode::Element(element) => element.local_name() != "bg",
+        _ => true,
+    });
     if let BackgroundWrite::Set(fill) = background {
         common.children.insert(
             0,

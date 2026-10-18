@@ -2217,15 +2217,102 @@ pub(crate) fn slide_background<T: ReadTxn>(
 pub(crate) fn validate_background(fill: &ShapeFill) -> EditResult<()> {
     match fill.fill_type.as_str() {
         "none" => Ok(()),
-        "solid" if fill.color.is_some() => Ok(()),
-        "gradient" if fill.gradient.is_some() => Ok(()),
-        "solid" | "gradient" => Err(EditError::InvalidGeometry(
-            "the background fill is missing its colour or gradient stops".to_owned(),
-        )),
-        other => Err(EditError::InvalidGeometry(format!(
+        "solid" => {
+            let color = fill.color.as_ref().ok_or_else(|| {
+                EditError::InvalidFill("the background fill is missing its colour".to_owned())
+            })?;
+            validate_background_color(color)
+        }
+        "gradient" => {
+            let gradient = fill.gradient.as_ref().ok_or_else(|| {
+                EditError::InvalidFill(
+                    "the background fill is missing its gradient stops".to_owned(),
+                )
+            })?;
+            if gradient.stops.len() < 2 {
+                return Err(EditError::InvalidFill(
+                    "a gradient background needs at least two stops".to_owned(),
+                ));
+            }
+            if gradient.angle.is_some_and(|angle| !angle.is_finite()) {
+                return Err(EditError::InvalidFill(
+                    "the gradient angle is not a finite number".to_owned(),
+                ));
+            }
+            for stop in &gradient.stops {
+                if !stop.position.is_finite() || !(0.0..=100_000.0).contains(&stop.position) {
+                    return Err(EditError::InvalidFill(format!(
+                        "gradient stop position {} is outside 0..=100000",
+                        stop.position
+                    )));
+                }
+                validate_background_color(&stop.color)?;
+            }
+            Ok(())
+        }
+        other => Err(EditError::InvalidFill(format!(
             "background fill type {other:?} is not supported"
         ))),
     }
+}
+
+fn validate_background_color(color: &ColorValue) -> EditResult<()> {
+    if let Some(rgb) = &color.rgb {
+        if rgb.len() != 6 || !rgb.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(EditError::InvalidFill(format!(
+                "background colour {rgb:?} must be a six-digit hex value"
+            )));
+        }
+    } else if !color.theme_color.as_deref().is_some_and(known_scheme_color) {
+        return Err(EditError::InvalidFill(
+            "the background colour needs an RGB or theme value".to_owned(),
+        ));
+    }
+    for (name, value) in [
+        ("alpha", color.alpha),
+        ("luminance modulation", color.luminance_modulation),
+        ("luminance offset", color.luminance_offset),
+        ("saturation modulation", color.saturation_modulation),
+    ] {
+        if value.is_some_and(|value| !value.is_finite() || !(0.0..=1.0).contains(&value)) {
+            return Err(EditError::InvalidFill(format!(
+                "background colour {name} is outside 0..=1"
+            )));
+        }
+    }
+    for (name, value) in [("tint", &color.theme_tint), ("shade", &color.theme_shade)] {
+        if let Some(value) = value
+            && (value.len() != 2 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        {
+            return Err(EditError::InvalidFill(format!(
+                "background colour {name} {value:?} must be two hex digits"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn known_scheme_color(color: &str) -> bool {
+    matches!(
+        color,
+        "background1"
+            | "text1"
+            | "background2"
+            | "text2"
+            | "bg1"
+            | "tx1"
+            | "bg2"
+            | "tx2"
+            | "accent1"
+            | "accent2"
+            | "accent3"
+            | "accent4"
+            | "accent5"
+            | "accent6"
+            | "hlink"
+            | "folHlink"
+            | "phClr"
+    )
 }
 
 pub(crate) fn snapshot_shape<T: ReadTxn>(

@@ -408,6 +408,8 @@ pub enum EditError {
     ParagraphBoundary { start: u32, end: u32 },
     #[error("invalid shape geometry: {0}")]
     InvalidGeometry(String),
+    #[error("invalid fill: {0}")]
+    InvalidFill(String),
     #[error("invalid shape adjustment: {0}")]
     InvalidAdjustment(String),
     #[error("invalid text: {0}")]
